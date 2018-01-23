@@ -2,7 +2,6 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
-using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
@@ -21,26 +20,45 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 throw new ArgumentNullException(nameof(context));
             }
 
-            if (context.BindingInfo.BindingSource != null &&
-                context.BindingInfo.BindingSource.CanAcceptDataFrom(BindingSource.Header))
-            {
-                var loggerFactory = context.Services.GetRequiredService<ILoggerFactory>();
-                var logger = loggerFactory.CreateLogger<HeaderModelBinderProvider>();
+            var modelMetadata = context.Metadata;
 
-                // We only support strings and collections of strings. Some cases can fail
-                // at runtime due to collections we can't modify.
-                if (context.Metadata.ModelType == typeof(string) ||
-                    context.Metadata.ElementType == typeof(string))
+            if (context.BindingInfo.BindingSource != null
+                && context.BindingInfo.BindingSource.CanAcceptDataFrom(BindingSource.Header)
+                && IsSimpleType(modelMetadata))
+            {
+                var metadata = modelMetadata.GetMetadataForType(modelMetadata.ModelType);
+                var innerModelBinder = context.CreateBinder(metadata);
+                if (innerModelBinder == null)
                 {
-                    return new HeaderModelBinder(loggerFactory);
+                    return null;
                 }
-                else
-                {
-                    logger.CannotCreateHeaderModelBinder(context.Metadata.ModelType);
-                }
+
+                var loggerFactory = context.Services.GetRequiredService<ILoggerFactory>();
+                return new HeaderModelBinder(loggerFactory, innerModelBinder);
             }
 
             return null;
+        }
+
+        // Support binding only to simple types or collection of simple types.
+        private bool IsSimpleType(ModelMetadata modelMetadata)
+        {
+            if (modelMetadata.IsComplexType)
+            {
+                var elementMetadata = modelMetadata.ElementMetadata;
+
+                // Is a complex type and not a collection
+                if (elementMetadata == null)
+                {
+                    return false;
+                }
+                // The element of collection is not a simple type
+                else if (elementMetadata.IsComplexType)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

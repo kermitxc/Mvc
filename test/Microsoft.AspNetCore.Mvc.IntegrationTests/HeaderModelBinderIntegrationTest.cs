@@ -15,6 +15,12 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 {
     public class HeaderModelBinderIntegrationTest
     {
+        private enum CarType
+        {
+            Coupe,
+            Sedan
+        }
+
         private class Person
         {
             public Address Address { get; set; }
@@ -25,6 +31,27 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             [FromHeader(Name = "Header")]
             [Required]
             public string Street { get; set; }
+
+            [FromHeader]
+            public string OneCommaSeparatedString { get; set; }
+
+            [FromHeader]
+            public int IntProperty { get; set; }
+
+            [FromHeader]
+            public int? NullableIntProperty { get; set; }
+
+            [FromHeader]
+            public long? NullableLongProperty { get; set; }
+
+            [FromHeader]
+            public string[] ArrayOfString { get; set; }
+
+            [FromHeader]
+            public IEnumerable<double> EnumerableOfDouble { get; set; }
+
+            [FromHeader]
+            public List<CarType> ListOfEnum { get; set; }
         }
 
         [Fact]
@@ -82,7 +109,16 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             };
 
             var testContext = ModelBindingTestHelper.GetTestContext(
-                request => request.Headers.Add("Header", new[] { "someValue" }));
+                request =>
+                {
+                    request.Headers.Add("Header", "someValue");
+                    request.Headers.Add("OneCommaSeparatedString", "one, two, three");
+                    request.Headers.Add("IntProperty", "10");
+                    request.Headers.Add("NullableIntProperty", "300");
+                    request.Headers.Add("ArrayOfString", "first, second");
+                    request.Headers.Add("EnumerableOfDouble", "10.51, 45.44");
+                    request.Headers.Add("ListOfEnum", "Sedan, Coupe");
+                });
             var modelState = testContext.ModelState;
 
             // Act
@@ -98,15 +134,71 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.NotNull(boundPerson);
             Assert.NotNull(boundPerson.Address);
             Assert.Equal("someValue", boundPerson.Address.Street);
+            Assert.Equal("one, two, three", boundPerson.Address.OneCommaSeparatedString);
+            Assert.Equal(10, boundPerson.Address.IntProperty);
+            Assert.Equal(300, boundPerson.Address.NullableIntProperty);
+            Assert.Null(boundPerson.Address.NullableLongProperty);
+            Assert.Equal(new[] { "first", "second" }, boundPerson.Address.ArrayOfString);
+            Assert.Equal(new double[] { 10.51, 45.44 }, boundPerson.Address.EnumerableOfDouble);
+            Assert.Equal(new CarType[] { CarType.Sedan, CarType.Coupe }, boundPerson.Address.ListOfEnum);
 
             // ModelState
             Assert.True(modelState.IsValid);
-            var entry = Assert.Single(modelState);
-            Assert.Equal("prefix.Address.Header", entry.Key);
-            Assert.Empty(entry.Value.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.Value.ValidationState);
-            Assert.Equal("someValue", entry.Value.AttemptedValue);
-            Assert.Equal(new string[] { "someValue" }, entry.Value.RawValue);
+            var entry = modelState["prefix.Address.Header"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("someValue", entry.AttemptedValue);
+            Assert.Equal("someValue", entry.RawValue);
+
+            entry = modelState["prefix.Address.OneCommaSeparatedString"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("one, two, three", entry.AttemptedValue);
+            Assert.Equal("one, two, three", entry.RawValue);
+
+            entry = modelState["prefix.Address.IntProperty"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("10", entry.AttemptedValue);
+            Assert.Equal("10", entry.RawValue);
+
+            entry = modelState["prefix.Address.NullableIntProperty"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("300", entry.AttemptedValue);
+            Assert.Equal("300", entry.RawValue);
+
+            entry = modelState["prefix.Address.NullableLongProperty"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("", entry.AttemptedValue);
+            Assert.Null(entry.RawValue);
+
+            entry = modelState["prefix.Address.ArrayOfString"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("first,second", entry.AttemptedValue);
+            Assert.Equal(new[] { "first", "second" }, entry.RawValue);
+
+            entry = modelState["prefix.Address.EnumerableOfDouble"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("10.51,45.44", entry.AttemptedValue);
+            Assert.Equal(new[] { "10.51", "45.44" }, entry.RawValue);
+
+            entry = modelState["prefix.Address.ListOfEnum"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("Sedan,Coupe", entry.AttemptedValue);
+            Assert.Equal(new[] { "Sedan", "Coupe" }, entry.RawValue);
         }
 
         // The scenario is interesting as we to bind the top level model we fallback to empty prefix,

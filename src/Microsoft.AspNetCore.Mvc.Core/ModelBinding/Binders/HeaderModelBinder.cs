@@ -2,8 +2,8 @@
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Internal;
 using Microsoft.Extensions.Logging;
@@ -45,8 +45,32 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
         }
 
+        /// <summary>
+        /// Initializes a new instance of <see cref="HeaderModelBinder"/>.
+        /// </summary>
+        /// <param name="innerModelBinder"></param>
+        /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
+        public HeaderModelBinder(ILoggerFactory loggerFactory, IModelBinder innerModelBinder)
+        {
+            if (loggerFactory == null)
+            {
+                throw new ArgumentNullException(nameof(loggerFactory));
+            }
+
+            if (innerModelBinder == null)
+            {
+                throw new ArgumentNullException(nameof(innerModelBinder));
+            }
+
+            InnerModelBinder = innerModelBinder;
+            _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
+        }
+
+        // to enable unit testing
+        internal IModelBinder InnerModelBinder { get; }
+
         /// <inheritdoc />
-        public Task BindModelAsync(ModelBindingContext bindingContext)
+        public async Task BindModelAsync(ModelBindingContext bindingContext)
         {
             if (bindingContext == null)
             {
@@ -60,71 +84,29 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 
             _logger.AttemptingToBindModel(bindingContext);
 
-            if (!request.Headers.ContainsKey(headerName))
+            var headerValueProvider = new HeaderValueProvider(request.Headers, CultureInfo.InvariantCulture, bindingContext.FieldName);
+            // Prevent breaking existing users in scenarios where they are binding to a 'string' property and expect
+            // the whole comma separated string, if any, as a single string and not as a string array
+            headerValueProvider.UseCommaSeparatedValues = bindingContext.ModelMetadata.IsEnumerableType;
+
+            // Create a new binding scope in order to supply the HeaderValueProvider so that the binders like
+            // SimpleTypeModelBinder can find values from header.
+            ModelBindingResult result;
+            using (bindingContext.EnterNestedScope(
+                    bindingContext.ModelMetadata,
+                    fieldName: bindingContext.FieldName,
+                    modelName: bindingContext.ModelName,
+                    model: bindingContext.Model))
             {
-                _logger.FoundNoValueInRequest(bindingContext);
+                bindingContext.ValueProvider = headerValueProvider;
+
+                await InnerModelBinder.BindModelAsync(bindingContext);
+                result = bindingContext.Result;
             }
 
-            object model;
-            if (bindingContext.ModelType == typeof(string))
-            {
-                var value = request.Headers[headerName];
-                model = (string)value;
-            }
-            else if (ModelBindingHelper.CanGetCompatibleCollection<string>(bindingContext))
-            {
-                var values = request.Headers.GetCommaSeparatedValues(headerName);
-                model = GetCompatibleCollection(bindingContext, values);
-            }
-            else
-            {
-                // An unsupported datatype or a new collection is needed (perhaps because target type is an array) but
-                // can't assign it to the property.
-                model = null;
-            }
-
-            if (model == null)
-            {
-                // Silently fail if unable to create an instance or use the current instance. Also reach here in the
-                // typeof(string) case if the header does not exist in the request and in the
-                // typeof(IEnumerable<string>) case if the header does not exist and this is not a top-level object.
-                bindingContext.Result = ModelBindingResult.Failed();
-            }
-            else
-            {
-                bindingContext.ModelState.SetModelValue(
-                    bindingContext.ModelName,
-                    request.Headers.GetCommaSeparatedValues(headerName),
-                    request.Headers[headerName]);
-
-                bindingContext.Result = ModelBindingResult.Success(model);
-            }
+            bindingContext.Result = result;
 
             _logger.DoneAttemptingToBindModel(bindingContext);
-            return Task.CompletedTask;
-        }
-
-        private static object GetCompatibleCollection(ModelBindingContext bindingContext, string[] values)
-        {
-            // Almost-always success if IsTopLevelObject.
-            if (!bindingContext.IsTopLevelObject && values.Length == 0)
-            {
-                return null;
-            }
-
-            if (bindingContext.ModelType.IsAssignableFrom(typeof(string[])))
-            {
-                // Array we already have is compatible.
-                return values;
-            }
-
-            var collection = ModelBindingHelper.GetCompatibleCollection<string>(bindingContext, values.Length);
-            for (var i = 0; i < values.Length; i++)
-            {
-                collection.Add(values[i]);
-            }
-
-            return collection;
         }
     }
 }
