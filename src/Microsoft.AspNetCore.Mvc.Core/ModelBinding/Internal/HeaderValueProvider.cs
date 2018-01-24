@@ -4,6 +4,7 @@
 using System;
 using System.Globalization;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc.Core;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
 {
@@ -23,14 +24,17 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
                 throw new ArgumentNullException(nameof(headers));
             }
 
+            if (string.IsNullOrEmpty(headerFieldName))
+            {
+                throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(headerFieldName));
+            }
+
             _headers = headers;
             _culture = culture;
             _headerFieldName = headerFieldName;
         }
 
         public bool UseCommaSeparatedValues { get; set; }
-
-        public CultureInfo Culture => _culture;
 
         /// <inheritdoc />
         public bool ContainsPrefix(string prefix)
@@ -43,23 +47,16 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
         /// <inheritdoc />
         public ValueProviderResult GetValue(string key)
         {
-            if (key == null)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
-
             // In 2.0 version, HeaderModelBinder didn't consider prefix at all and doing now would break existing
-            // users, so ignore the key value totally and only rely on the field name
-            key = _headerFieldName;
-
+            // users, so ignore the key value totally and only rely on the field name.
             string[] values;
             if (UseCommaSeparatedValues)
             {
-                values = _headers.GetCommaSeparatedValues(key);
+                values = _headers.GetCommaSeparatedValues(_headerFieldName);
             }
             else
             {
-                values = new[] { (string)_headers[key] };
+                values = new[] { (string)_headers[_headerFieldName] };
             }
 
             if (values.Length == 0)

@@ -27,7 +27,12 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 && IsSimpleType(modelMetadata))
             {
                 var metadata = modelMetadata.GetMetadataForType(modelMetadata.ModelType);
-                var innerModelBinder = context.CreateBinder(metadata);
+
+                // Change the binding info to prevent recursion
+                var nonHeaderBindingInfo = new BindingInfo(context.BindingInfo);
+                nonHeaderBindingInfo.BindingSource = BindingSource.ModelBinding;
+
+                var innerModelBinder = context.CreateBinder(metadata, nonHeaderBindingInfo);
                 if (innerModelBinder == null)
                 {
                     return null;

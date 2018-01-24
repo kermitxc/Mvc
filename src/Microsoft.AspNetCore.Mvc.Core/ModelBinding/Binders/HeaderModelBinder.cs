@@ -48,7 +48,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         /// <summary>
         /// Initializes a new instance of <see cref="HeaderModelBinder"/>.
         /// </summary>
-        /// <param name="innerModelBinder"></param>
+        /// <param name="innerModelBinder">The <see cref="IModelBinder"/> which does the actual
+        /// binding of values.</param>
         /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
         public HeaderModelBinder(ILoggerFactory loggerFactory, IModelBinder innerModelBinder)
         {
@@ -77,14 +78,24 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 throw new ArgumentNullException(nameof(bindingContext));
             }
 
-            var request = bindingContext.HttpContext.Request;
+            _logger.AttemptingToBindModel(bindingContext);
 
             // Property name can be null if the model metadata represents a type (rather than a property or parameter).
             var headerName = bindingContext.FieldName;
 
-            _logger.AttemptingToBindModel(bindingContext);
+            var request = bindingContext.HttpContext.Request;
+            if (!request.Headers.ContainsKey(headerName))
+            {
+                _logger.FoundNoValueInRequest(bindingContext);
+            }
 
-            var headerValueProvider = new HeaderValueProvider(request.Headers, CultureInfo.InvariantCulture, bindingContext.FieldName);
+            // Explicitly pass in the header name as the key rather than taking in the model name to look for values
+            // as otherwise it would be breaking from earlier version where we didn't consider prefixes.
+            var headerValueProvider = new HeaderValueProvider(
+                request.Headers,
+                CultureInfo.InvariantCulture,
+                headerName);
+
             // Prevent breaking existing users in scenarios where they are binding to a 'string' property and expect
             // the whole comma separated string, if any, as a single string and not as a string array
             headerValueProvider.UseCommaSeparatedValues = bindingContext.ModelMetadata.IsEnumerableType;
