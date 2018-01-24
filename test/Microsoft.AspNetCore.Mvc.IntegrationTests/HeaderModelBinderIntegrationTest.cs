@@ -15,12 +15,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
 {
     public class HeaderModelBinderIntegrationTest
     {
-        private enum CarType
-        {
-            Coupe,
-            Sedan
-        }
-
         private class Person
         {
             public Address Address { get; set; }
@@ -31,27 +25,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             [FromHeader(Name = "Header")]
             [Required]
             public string Street { get; set; }
-
-            [FromHeader]
-            public string OneCommaSeparatedString { get; set; }
-
-            [FromHeader]
-            public int IntProperty { get; set; }
-
-            [FromHeader]
-            public int? NullableIntProperty { get; set; }
-
-            [FromHeader]
-            public long? NullableLongProperty { get; set; }
-
-            [FromHeader]
-            public string[] ArrayOfString { get; set; }
-
-            [FromHeader]
-            public IEnumerable<double> EnumerableOfDouble { get; set; }
-
-            [FromHeader]
-            public List<CarType> ListOfEnum { get; set; }
         }
 
         [Fact]
@@ -109,16 +82,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             };
 
             var testContext = ModelBindingTestHelper.GetTestContext(
-                request =>
-                {
-                    request.Headers.Add("Header", "someValue");
-                    request.Headers.Add("OneCommaSeparatedString", "one, two, three");
-                    request.Headers.Add("IntProperty", "10");
-                    request.Headers.Add("NullableIntProperty", "300");
-                    request.Headers.Add("ArrayOfString", "first, second");
-                    request.Headers.Add("EnumerableOfDouble", "10.51, 45.44");
-                    request.Headers.Add("ListOfEnum", "Sedan, Coupe");
-                });
+                request => request.Headers.Add("Header", new[] { "someValue" }));
             var modelState = testContext.ModelState;
 
             // Act
@@ -134,71 +98,15 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.NotNull(boundPerson);
             Assert.NotNull(boundPerson.Address);
             Assert.Equal("someValue", boundPerson.Address.Street);
-            Assert.Equal("one, two, three", boundPerson.Address.OneCommaSeparatedString);
-            Assert.Equal(10, boundPerson.Address.IntProperty);
-            Assert.Equal(300, boundPerson.Address.NullableIntProperty);
-            Assert.Null(boundPerson.Address.NullableLongProperty);
-            Assert.Equal(new[] { "first", "second" }, boundPerson.Address.ArrayOfString);
-            Assert.Equal(new double[] { 10.51, 45.44 }, boundPerson.Address.EnumerableOfDouble);
-            Assert.Equal(new CarType[] { CarType.Sedan, CarType.Coupe }, boundPerson.Address.ListOfEnum);
 
             // ModelState
             Assert.True(modelState.IsValid);
-            var entry = modelState["prefix.Address.Header"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("someValue", entry.AttemptedValue);
-            Assert.Equal("someValue", entry.RawValue);
-
-            entry = modelState["prefix.Address.OneCommaSeparatedString"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("one, two, three", entry.AttemptedValue);
-            Assert.Equal("one, two, three", entry.RawValue);
-
-            entry = modelState["prefix.Address.IntProperty"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("10", entry.AttemptedValue);
-            Assert.Equal("10", entry.RawValue);
-
-            entry = modelState["prefix.Address.NullableIntProperty"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("300", entry.AttemptedValue);
-            Assert.Equal("300", entry.RawValue);
-
-            entry = modelState["prefix.Address.NullableLongProperty"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("", entry.AttemptedValue);
-            Assert.Null(entry.RawValue);
-
-            entry = modelState["prefix.Address.ArrayOfString"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("first,second", entry.AttemptedValue);
-            Assert.Equal(new[] { "first", "second" }, entry.RawValue);
-
-            entry = modelState["prefix.Address.EnumerableOfDouble"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("10.51,45.44", entry.AttemptedValue);
-            Assert.Equal(new[] { "10.51", "45.44" }, entry.RawValue);
-
-            entry = modelState["prefix.Address.ListOfEnum"];
-            Assert.NotNull(entry);
-            Assert.Empty(entry.Errors);
-            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-            Assert.Equal("Sedan,Coupe", entry.AttemptedValue);
-            Assert.Equal(new[] { "Sedan", "Coupe" }, entry.RawValue);
+            var entry = Assert.Single(modelState);
+            Assert.Equal("prefix.Address.Header", entry.Key);
+            Assert.Empty(entry.Value.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.Value.ValidationState);
+            Assert.Equal("someValue", entry.Value.AttemptedValue);
+            Assert.Equal("someValue", entry.Value.RawValue);
         }
 
         // The scenario is interesting as we to bind the top level model we fallback to empty prefix,
@@ -240,7 +148,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Empty(entry.Value.Errors);
             Assert.Equal(ModelValidationState.Valid, entry.Value.ValidationState);
             Assert.Equal("someValue", entry.Value.AttemptedValue);
-            Assert.Equal(new string[] { "someValue" }, entry.Value.RawValue);
+            Assert.Equal("someValue", entry.Value.RawValue);
         }
 
         private class ListContainer1
@@ -287,7 +195,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Empty(modelStateEntry.Errors);
             Assert.Equal(ModelValidationState.Valid, modelStateEntry.ValidationState);
             Assert.Equal("someValue", modelStateEntry.AttemptedValue);
-            Assert.Equal(new[] { "someValue" }, modelStateEntry.RawValue);
+            Assert.Equal("someValue", modelStateEntry.RawValue);
         }
 
         private class ListContainer2
@@ -334,7 +242,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Empty(modelStateEntry.Errors);
             Assert.Equal(ModelValidationState.Valid, modelStateEntry.ValidationState);
             Assert.Equal("someValue", modelStateEntry.AttemptedValue);
-            Assert.Equal(new[] { "someValue" }, modelStateEntry.RawValue);
+            Assert.Equal("someValue", modelStateEntry.RawValue);
         }
 
         [Theory]
@@ -343,17 +251,17 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindParameterFromHeader_WithData_WithPrefix_ModelGetsBound(Type modelType, string value)
         {
             // Arrange
-            object expectedValue;
+            string expectedAttemptedValue;
             object expectedRawValue;
             if (modelType == typeof(string))
             {
-                expectedValue = value;
-                expectedRawValue = new string[] { value };
+                expectedAttemptedValue = value;
+                expectedRawValue = value;
             }
             else
             {
-                expectedValue = value.Split(',').Select(v => v.Trim()).ToArray();
-                expectedRawValue = expectedValue;
+                expectedAttemptedValue = value.Replace(" ", "");
+                expectedRawValue = value.Split(',').Select(v => v.Trim()).ToArray();
             }
 
             var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
@@ -368,7 +276,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = modelType
             };
 
-            Action<HttpRequest> action = r => r.Headers.Add("CustomParameter", new[] { value });
+            Action<HttpRequest> action = r => r.Headers.Add("CustomParameter", new[] { expectedAttemptedValue });
             var testContext = ModelBindingTestHelper.GetTestContext(action);
 
             // Do not add any headers.
@@ -393,7 +301,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Equal("CustomParameter", entry.Key);
             Assert.Empty(entry.Value.Errors);
             Assert.Equal(ModelValidationState.Valid, entry.Value.ValidationState);
-            Assert.Equal(value, entry.Value.AttemptedValue);
+            Assert.Equal(expectedAttemptedValue, entry.Value.AttemptedValue);
             Assert.Equal(expectedRawValue, entry.Value.RawValue);
         }
     }
