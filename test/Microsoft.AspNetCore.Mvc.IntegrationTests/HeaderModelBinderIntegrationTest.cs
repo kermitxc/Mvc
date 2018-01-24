@@ -3,7 +3,9 @@
 
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.ComponentModel.DataAnnotations;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -303,6 +305,192 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.Equal(ModelValidationState.Valid, entry.Value.ValidationState);
             Assert.Equal(expectedAttemptedValue, entry.Value.AttemptedValue);
             Assert.Equal(expectedRawValue, entry.Value.RawValue);
+        }
+
+        [Fact]
+        public async Task BindPropertyFromHeader_WithPrefix_GetsBound_ForSimpleTypes()
+        {
+            // Arrange
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
+            var parameter = new ParameterDescriptor()
+            {
+                Name = "Parameter1",
+                BindingInfo = new BindingInfo()
+                {
+                    BinderModelName = "prefix",
+                },
+                ParameterType = typeof(Product)
+            };
+
+            var testContext = ModelBindingTestHelper.GetTestContext(
+                request =>
+                {
+                    request.Headers.Add("NoCommaString", "someValue");
+                    request.Headers.Add("OneCommaSeparatedString", "one, two, three");
+                    request.Headers.Add("IntProperty", "10");
+                    request.Headers.Add("NullableIntProperty", "300");
+                    request.Headers.Add("ArrayOfString", "first, second");
+                    request.Headers.Add("EnumerableOfDouble", "10.51, 45.44");
+                    request.Headers.Add("ListOfEnum", "Sedan, Coupe");
+                    request.Headers.Add("ListOfOrderWithTypeConverter", "10");
+                });
+            var modelState = testContext.ModelState;
+
+            // Act
+            var modelBindingResult = await parameterBinder.BindModelAsync(parameter, testContext);
+
+            // Assert
+
+            // ModelBindingResult
+            Assert.True(modelBindingResult.IsModelSet);
+
+            // Model
+            var product = Assert.IsType<Product>(modelBindingResult.Model);
+            Assert.NotNull(product);
+            Assert.NotNull(product.Manufacturer);
+            Assert.Equal("someValue", product.Manufacturer.NoCommaString);
+            Assert.Equal("one, two, three", product.Manufacturer.OneCommaSeparatedString);
+            Assert.Equal(10, product.Manufacturer.IntProperty);
+            Assert.Equal(300, product.Manufacturer.NullableIntProperty);
+            Assert.Null(product.Manufacturer.NullableLongProperty);
+            Assert.Equal(new[] { "first", "second" }, product.Manufacturer.ArrayOfString);
+            Assert.Equal(new double[] { 10.51, 45.44 }, product.Manufacturer.EnumerableOfDouble);
+            Assert.Equal(new CarType[] { CarType.Sedan, CarType.Coupe }, product.Manufacturer.ListOfEnum);
+            var orderWithTypeConverter = Assert.Single(product.Manufacturer.ListOfOrderWithTypeConverter);
+            Assert.Equal(10, orderWithTypeConverter.Id);
+
+            // ModelState
+            Assert.True(modelState.IsValid);
+            var entry = modelState["prefix.Manufacturer.NoCommaString"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("someValue", entry.AttemptedValue);
+            Assert.Equal("someValue", entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.OneCommaSeparatedString"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("one, two, three", entry.AttemptedValue);
+            Assert.Equal("one, two, three", entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.IntProperty"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("10", entry.AttemptedValue);
+            Assert.Equal("10", entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.NullableIntProperty"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("300", entry.AttemptedValue);
+            Assert.Equal("300", entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.NullableLongProperty"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("", entry.AttemptedValue);
+            Assert.Null(entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.ArrayOfString"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("first,second", entry.AttemptedValue);
+            Assert.Equal(new[] { "first", "second" }, entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.EnumerableOfDouble"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("10.51,45.44", entry.AttemptedValue);
+            Assert.Equal(new[] { "10.51", "45.44" }, entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.ListOfEnum"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("Sedan,Coupe", entry.AttemptedValue);
+            Assert.Equal(new[] { "Sedan", "Coupe" }, entry.RawValue);
+
+            entry = modelState["prefix.Manufacturer.ListOfOrderWithTypeConverter"];
+            Assert.NotNull(entry);
+            Assert.Empty(entry.Errors);
+            Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
+            Assert.Equal("10", entry.AttemptedValue);
+            Assert.Equal("10", entry.RawValue);
+        }
+
+        private class Product
+        {
+            public Manufacturer Manufacturer { get; set; }
+        }
+
+        private class Manufacturer
+        {
+            [FromHeader]
+            public string NoCommaString { get; set; }
+
+            [FromHeader]
+            public string OneCommaSeparatedString { get; set; }
+
+            [FromHeader]
+            public int IntProperty { get; set; }
+
+            [FromHeader]
+            public int? NullableIntProperty { get; set; }
+
+            [FromHeader]
+            public long? NullableLongProperty { get; set; }
+
+            [FromHeader]
+            public string[] ArrayOfString { get; set; }
+
+            [FromHeader]
+            public IEnumerable<double> EnumerableOfDouble { get; set; }
+
+            [FromHeader]
+            public List<CarType> ListOfEnum { get; set; }
+
+            [FromHeader]
+            public List<OrderWithTypeConverter> ListOfOrderWithTypeConverter { get; set; }
+        }
+
+        private enum CarType
+        {
+            Coupe,
+            Sedan
+        }
+
+        [TypeConverter(typeof(CanConvertFromStringConverter))]
+        private class OrderWithTypeConverter : IEquatable<OrderWithTypeConverter>
+        {
+            public int Id { get; set; }
+
+            public int ItemCount { get; set; }
+
+            public bool Equals(OrderWithTypeConverter other)
+            {
+                return Id == other.Id;
+            }
+        }
+
+        private class CanConvertFromStringConverter : TypeConverter
+        {
+            public override bool CanConvertFrom(ITypeDescriptorContext context, Type sourceType)
+            {
+                return sourceType == typeof(string);
+            }
+
+            public override object ConvertFrom(ITypeDescriptorContext context, CultureInfo culture, object value)
+            {
+                var id = value.ToString();
+                return new OrderWithTypeConverter() { Id = int.Parse(id) };
+            }
         }
     }
 }
