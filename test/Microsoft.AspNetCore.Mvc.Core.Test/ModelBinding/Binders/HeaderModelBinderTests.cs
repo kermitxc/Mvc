@@ -92,7 +92,6 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             Assert.Equal(headerValue.Split(','), bindingContext.Result.Model as IEnumerable<string>);
         }
 
-
         [Fact]
         public async Task HeaderBinder_BindsHeaders_ToStringCollection()
         {
@@ -240,6 +239,54 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             Assert.Same(testValueProvider.Object, bindingContext.ValueProvider);
         }
 
+        [Theory]
+        [InlineData(typeof(int), "not-an-integer")]
+        [InlineData(typeof(double), "not-an-double")]
+        [InlineData(typeof(CarType?), "boo")]
+        public async Task HeaderBinder_BindModelAsync_AddsErrorToModelState_OnInvalidInput(
+            Type modelType,
+            string headerValue)
+        {
+            // Arrange
+            var bindingContext = CreateContext(modelType);
+            var binder = CreateBinder(bindingContext.ModelMetadata);
+            bindingContext.HttpContext.Request.Headers.Add("Header", headerValue);
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            var entry = bindingContext.ModelState["someprefix.Header"];
+            Assert.NotNull(entry);
+            var error = Assert.Single(entry.Errors);
+            Assert.Equal($"The value '{headerValue}' is not valid.", error.ErrorMessage);
+        }
+
+        [Theory]
+        [InlineData(typeof(int[]), "a, b")]
+        [InlineData(typeof(IEnumerable<double>), "a, b")]
+        [InlineData(typeof(ICollection<CarType>), "a, b")]
+        public async Task HeaderBinder_BindModelAsync_AddsErrorToModelState_OnInvalid_CollectionInput(
+            Type modelType,
+            string headerValue)
+        {
+            // Arrange
+            var headerValues = headerValue.Split(',').Select(s => s.Trim()).ToArray();
+            var bindingContext = CreateContext(modelType);
+            var binder = CreateBinder(bindingContext.ModelMetadata);
+            bindingContext.HttpContext.Request.Headers.Add("Header", headerValue);
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            var entry = bindingContext.ModelState["someprefix.Header"];
+            Assert.NotNull(entry);
+            Assert.Equal(2, entry.Errors.Count);
+            Assert.Equal($"The value '{headerValues[0]}' is not valid.", entry.Errors[0].ErrorMessage);
+            Assert.Equal($"The value '{headerValues[1]}' is not valid.", entry.Errors[1].ErrorMessage);
+        }
+
         private static DefaultModelBindingContext CreateContext(Type modelType)
         {
             return CreateContext(GetMetadataForType(modelType));
@@ -254,14 +301,20 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 valueProvider = Mock.Of<IValueProvider>();
             }
 
+            var headerName = "Header";
+
             return new DefaultModelBindingContext()
             {
                 IsTopLevelObject = true,
                 ModelMetadata = metadata,
                 BinderModelName = metadata.BinderModelName,
                 BindingSource = metadata.BindingSource,
-                ModelName = "theModel", // HeaderModelBinder must always use the field name for back compat reasons
-                FieldName = "Header",
+
+                // HeaderModelBinder must always use the field name when getting the values from header value provider
+                // but add keys into ModelState using the ModelName. This is for back compat reasons.
+                ModelName = $"somePrefix.{headerName}",
+                FieldName = headerName,
+
                 ValueProvider = valueProvider,
                 ModelState = new ModelStateDictionary(),
                 ActionContext = new ActionContext()

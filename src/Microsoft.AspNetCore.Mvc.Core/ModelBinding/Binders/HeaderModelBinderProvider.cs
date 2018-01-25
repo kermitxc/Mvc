@@ -44,8 +44,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             var nonFromHeaderBindingInfo = new BindingInfo(bindingInfo);
             nonFromHeaderBindingInfo.BindingSource = BindingSource.ModelBinding;
 
-            var metadata = modelMetadata.GetMetadataForType(modelMetadata.ModelType);
-            var innerModelBinder = context.CreateBinder(modelMetadata, nonFromHeaderBindingInfo);
+            var innerModelBinder = context.CreateBinder(
+                modelMetadata.GetMetadataForType(modelMetadata.ModelType),
+                nonFromHeaderBindingInfo);
+
             if (innerModelBinder == null)
             {
                 return null;
