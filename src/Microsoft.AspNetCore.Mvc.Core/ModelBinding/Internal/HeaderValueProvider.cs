@@ -8,7 +8,7 @@ using Microsoft.AspNetCore.Mvc.Core;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
 {
-    public class HeaderValueProvider : IValueProvider
+    internal class HeaderValueProvider : IValueProvider
     {
         private readonly CultureInfo _culture;
         private readonly string _headerFieldName;
@@ -39,16 +39,12 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
         /// <inheritdoc />
         public bool ContainsPrefix(string prefix)
         {
-            // In 2.0 version, HeaderModelBinder didn't consider prefix at all and doing now would break existing
-            // users, so ignore the key value totally and only rely on the field name
             return _headers.ContainsKey(_headerFieldName);
         }
 
         /// <inheritdoc />
         public ValueProviderResult GetValue(string key)
         {
-            // In 2.0 version, HeaderModelBinder didn't consider prefix at all and doing now would break existing
-            // users, so ignore the key value totally and only rely on the field name.
             string[] values;
             if (UseCommaSeparatedValues)
             {

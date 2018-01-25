@@ -490,7 +490,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
             _cannotCreateHeaderModelBinder = LoggerMessage.Define<Type>(
                LogLevel.Debug,
                20,
-               "Could not create a binder for type '{ModelType}' as this binder only supports 'System.String' type or a collection of 'System.String'.");
+               "Could not create a binder for type '{ModelType}' as this binder only supports simple types (like string, int, bool, enum) or a collection of them.");
 
             _noFilesFoundInRequest = LoggerMessage.Define(
                 LogLevel.Debug,
