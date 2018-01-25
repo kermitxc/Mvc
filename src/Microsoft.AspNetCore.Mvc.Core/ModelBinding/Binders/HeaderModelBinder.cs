@@ -100,20 +100,12 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 return;
             }
 
-            // Do not set ModelBindingResult to Failed on not finding the value as we want the inner modelbinder to
-            // do that. This would give a chance to the inner binder to add more useful information. For example,
-            // SimpleTypeModelBinder adds a model error when binding to let's say and integer and the model is null.
+            // Do not set ModelBindingResult to Failed on not finding the value in the header as we want the inner 
+            // modelbinder to do that. This would give a chance to the inner binder to add more useful information.
+            // For example, SimpleTypeModelBinder adds a model error when binding to let's say an integer and the
+            // model is null.
 
-            // Explicitly pass in the header name as the key rather than taking in the model name to look for values
-            // as otherwise it would be breaking from earlier version where we didn't consider prefixes.
-            var headerValueProvider = new HeaderValueProvider(
-                request.Headers,
-                CultureInfo.InvariantCulture,
-                headerName);
-
-            // Prevent breaking existing users in scenarios where they are binding to a 'string' property and expect
-            // the whole comma separated string, if any, as a single string and not as a string array
-            headerValueProvider.UseCommaSeparatedValues = bindingContext.ModelMetadata.IsEnumerableType;
+            var headerValueProvider = GetHeaderValueProvider(headerName, bindingContext);
 
             // Create a new binding scope in order to supply the HeaderValueProvider so that the binders like
             // SimpleTypeModelBinder can find values from header.
@@ -133,6 +125,30 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             bindingContext.Result = result;
 
             _logger.DoneAttemptingToBindModel(bindingContext);
+        }
+
+        private HeaderValueProvider GetHeaderValueProvider(string headerName, ModelBindingContext bindingContext)
+        {
+            var request = bindingContext.HttpContext.Request;
+
+            // Prevent breaking existing users in scenarios where they are binding to a 'string' property
+            // and expect the whole comma separated string, if any, as a single string and not as a string array.
+            string[] values;
+            if (bindingContext.ModelMetadata.IsEnumerableType)
+            {
+                values = request.Headers.GetCommaSeparatedValues(headerName);
+            }
+            else
+            {
+                values = new[] { (string)request.Headers[headerName] };
+            }
+
+            // Explicitly pass in the header name as the key rather than taking in the model name to look for values
+            // as otherwise it would be breaking from earlier version where we didn't consider prefixes.
+            return new HeaderValueProvider(
+                CultureInfo.InvariantCulture,
+                request.Headers.ContainsKey(headerName),
+                values);
         }
 
         private void BindWithoutInnerBinder(ModelBindingContext bindingContext)

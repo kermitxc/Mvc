@@ -3,65 +3,46 @@
 
 using System;
 using System.Globalization;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc.Core;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
 {
     internal class HeaderValueProvider : IValueProvider
     {
         private readonly CultureInfo _culture;
-        private readonly string _headerFieldName;
-        private readonly IHeaderDictionary _headers;
+        private readonly bool _isHeaderPresent;
+        private readonly string[] _values;
 
         public HeaderValueProvider(
-            IHeaderDictionary headers,
             CultureInfo culture,
-            string headerFieldName)
+            bool isHeaderPresent,
+            string[] values)
         {
-            if (headers == null)
+            if (values == null)
             {
-                throw new ArgumentNullException(nameof(headers));
+                throw new ArgumentNullException(nameof(values));
             }
 
-            if (string.IsNullOrEmpty(headerFieldName))
-            {
-                throw new ArgumentException(Resources.ArgumentCannotBeNullOrEmpty, nameof(headerFieldName));
-            }
-
-            _headers = headers;
             _culture = culture;
-            _headerFieldName = headerFieldName;
+            _isHeaderPresent = isHeaderPresent;
+            _values = values;
         }
-
-        public bool UseCommaSeparatedValues { get; set; }
 
         /// <inheritdoc />
         public bool ContainsPrefix(string prefix)
         {
-            return _headers.ContainsKey(_headerFieldName);
+            return _isHeaderPresent;
         }
 
         /// <inheritdoc />
         public ValueProviderResult GetValue(string key)
         {
-            string[] values;
-            if (UseCommaSeparatedValues)
-            {
-                values = _headers.GetCommaSeparatedValues(_headerFieldName);
-            }
-            else
-            {
-                values = new[] { (string)_headers[_headerFieldName] };
-            }
-
-            if (values.Length == 0)
+            if (_values.Length == 0)
             {
                 return ValueProviderResult.None;
             }
             else
             {
-                return new ValueProviderResult(values, _culture);
+                return new ValueProviderResult(_values, _culture);
             }
         }
     }

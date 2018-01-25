@@ -124,8 +124,11 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                     { "Sedan", typeof(CarType), CarType.Sedan },
                     { null, typeof(CarType?), null },
                     { "", typeof(CarType?), null },
+                    { "", typeof(string[]), Array.Empty<string>() },
+                    { "", typeof(IEnumerable<string>), new List<string>() },
                     { guid.ToString(), typeof(Guid), guid },
                     { "foo", typeof(string), "foo" },
+                    { "foo, bar", typeof(string), "foo, bar" },
                     { "foo, bar", typeof(string[]), new[]{ "foo", "bar" } },
                     { "foo, \"bar\"", typeof(string[]), new[]{ "foo", "bar" } },
                     { "\"foo,bar\"", typeof(string[]), new[]{ "foo,bar" } }
