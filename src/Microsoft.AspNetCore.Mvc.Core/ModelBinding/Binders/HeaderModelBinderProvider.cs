@@ -48,22 +48,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         // Support binding only to simple types or collection of simple types.
         private bool IsSimpleType(ModelMetadata modelMetadata)
         {
-            if (modelMetadata.IsComplexType)
-            {
-                var elementMetadata = modelMetadata.ElementMetadata;
-
-                // Is a complex type and not a collection
-                if (elementMetadata == null)
-                {
-                    return false;
-                }
-                // The element of collection is not a simple type
-                else if (elementMetadata.IsComplexType)
-                {
-                    return false;
-                }
-            }
-            return true;
+            var metadata = modelMetadata.ElementMetadata ?? modelMetadata;
+            return !metadata.IsComplexType;
         }
     }
 }
