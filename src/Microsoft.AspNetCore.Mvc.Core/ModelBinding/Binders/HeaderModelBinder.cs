@@ -89,6 +89,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 _logger.FoundNoValueInRequest(bindingContext);
             }
 
+            // Do not set ModelBindingResult to Failed on not finding the value as we want the inner modelbinder to
+            // do that. This would give a chance to the inner binder to add more useful information. For example,
+            // SimpleTypeModelBinder adds a model error when binding to let's say and integer and the model is null.
+
             // Explicitly pass in the header name as the key rather than taking in the model name to look for values
             // as otherwise it would be breaking from earlier version where we didn't consider prefixes.
             var headerValueProvider = new HeaderValueProvider(

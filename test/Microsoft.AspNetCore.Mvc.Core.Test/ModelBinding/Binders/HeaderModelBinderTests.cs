@@ -7,6 +7,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Internal;
+using Microsoft.Extensions.Primitives;
+using Moq;
 using Xunit;
 
 namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
@@ -57,8 +59,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         [Theory]
         [MemberData(nameof(BinderHeaderToSimpleTypesData))]
         public async Task HeaderBinder_BindsHeaders_ToSimpleTypes(
-            string headerValue, 
-            Type modelType, 
+            string headerValue,
+            Type modelType,
             object expectedModel)
         {
             // Arrange
@@ -118,13 +120,62 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             Assert.NotNull(bindingContext.Result.Model);
         }
 
+        [Fact]
+        public async Task HeaderBinder_ResetsTheBindingScope_GivingOriginalValueProvider()
+        {
+            // Arrange
+            var expectedValueProvider = Mock.Of<IValueProvider>();
+            var bindingContext = CreateContext(GetMetadataForType(typeof(string)), expectedValueProvider);
+            var binder = CreateBinder(bindingContext.ModelMetadata);
+            bindingContext.HttpContext.Request.Headers.Add("Header", "application/json,text/json");
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.True(bindingContext.Result.IsModelSet);
+            Assert.Equal("application/json,text/json", bindingContext.Result.Model);
+            Assert.Same(expectedValueProvider, bindingContext.ValueProvider);
+        }
+
+        [Fact]
+        public async Task HeaderBinder_UsesValues_OnlyFromHeaderValueProvider()
+        {
+            // Arrange
+            var testValueProvider = new Mock<IValueProvider>();
+            testValueProvider
+                .Setup(vp => vp.ContainsPrefix(It.IsAny<string>()))
+                .Returns(true);
+            testValueProvider
+                .Setup(vp => vp.GetValue(It.IsAny<string>()))
+                .Returns(new ValueProviderResult(new StringValues("foo,bar")));
+            var bindingContext = CreateContext(GetMetadataForType(typeof(string)), testValueProvider.Object);
+            var binder = CreateBinder(bindingContext.ModelMetadata);
+            bindingContext.HttpContext.Request.Headers.Add("Header", "application/json,text/json");
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.True(bindingContext.Result.IsModelSet);
+            Assert.Equal("application/json,text/json", bindingContext.Result.Model);
+            Assert.Same(testValueProvider.Object, bindingContext.ValueProvider);
+        }
+
         private static DefaultModelBindingContext CreateContext(Type modelType)
         {
             return CreateContext(GetMetadataForType(modelType));
         }
 
-        private static DefaultModelBindingContext CreateContext(ModelMetadata metadata)
+        private static DefaultModelBindingContext CreateContext(
+            ModelMetadata metadata,
+            IValueProvider valueProvider = null)
         {
+            if (valueProvider == null)
+            {
+                valueProvider = Mock.Of<IValueProvider>();
+            }
+
             return new DefaultModelBindingContext()
             {
                 IsTopLevelObject = true,
@@ -133,6 +184,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 BindingSource = metadata.BindingSource,
                 ModelName = "theModel", // HeaderModelBinder must always use the field name for back compat reasons
                 FieldName = "Header",
+                ValueProvider = valueProvider,
                 ModelState = new ModelStateDictionary(),
                 ActionContext = new ActionContext()
                 {
