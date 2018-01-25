@@ -4,6 +4,7 @@
 using System;
 using System.Globalization;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Internal;
 using Microsoft.AspNetCore.Mvc.ModelBinding.Internal;
 using Microsoft.Extensions.Logging;
@@ -21,20 +22,24 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 
         /// <summary>
         /// <para>This constructor is obsolete and will be removed in a future version. The recommended alternative
-        /// is the overload that takes an <see cref="ILoggerFactory"/>.</para>
+        /// is the overload that takes an <see cref="ILoggerFactory"/> and an <see cref="IModelBinder"/>.</para>
         /// <para>Initializes a new instance of <see cref="HeaderModelBinder"/>.</para>
         /// </summary>
         [Obsolete("This constructor is obsolete and will be removed in a future version. The recommended alternative"
-            + " is the overload that takes an " + nameof(ILoggerFactory) + ".")]
+            + " is the overload that takes an " + nameof(ILoggerFactory) + " and an " + nameof(IModelBinder) + ".")]
         public HeaderModelBinder()
             : this(NullLoggerFactory.Instance)
         {
         }
 
         /// <summary>
+        /// <para>This constructor is obsolete and will be removed in a future version. The recommended alternative
+        /// is the overload that takes an <see cref="ILoggerFactory"/> and an <see cref="IModelBinder"/>.</para>
         /// Initializes a new instance of <see cref="HeaderModelBinder"/>.
         /// </summary>
         /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
+        [Obsolete("This constructor is obsolete and will be removed in a future version. The recommended alternative"
+            + " is the overload that takes an " + nameof(ILoggerFactory) + " and an " + nameof(IModelBinder) + ".")]
         public HeaderModelBinder(ILoggerFactory loggerFactory)
         {
             if (loggerFactory == null)
@@ -89,6 +94,12 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 _logger.FoundNoValueInRequest(bindingContext);
             }
 
+            if (InnerModelBinder == null)
+            {
+                BindWithoutInnerBinder(bindingContext);
+                return;
+            }
+
             // Do not set ModelBindingResult to Failed on not finding the value as we want the inner modelbinder to
             // do that. This would give a chance to the inner binder to add more useful information. For example,
             // SimpleTypeModelBinder adds a model error when binding to let's say and integer and the model is null.
@@ -122,6 +133,72 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             bindingContext.Result = result;
 
             _logger.DoneAttemptingToBindModel(bindingContext);
+        }
+
+        private void BindWithoutInnerBinder(ModelBindingContext bindingContext)
+        {
+            var headerName = bindingContext.FieldName;
+            var request = bindingContext.HttpContext.Request;
+
+            object model;
+            if (bindingContext.ModelType == typeof(string))
+            {
+                var value = request.Headers[headerName];
+                model = (string)value;
+            }
+            else if (ModelBindingHelper.CanGetCompatibleCollection<string>(bindingContext))
+            {
+                var values = request.Headers.GetCommaSeparatedValues(headerName);
+                model = GetCompatibleCollection(bindingContext, values);
+            }
+            else
+            {
+                // An unsupported datatype or a new collection is needed (perhaps because target type is an array) but
+                // can't assign it to the property.
+                model = null;
+            }
+
+            if (model == null)
+            {
+                // Silently fail if unable to create an instance or use the current instance. Also reach here in the
+                // typeof(string) case if the header does not exist in the request and in the
+                // typeof(IEnumerable<string>) case if the header does not exist and this is not a top-level object.
+                bindingContext.Result = ModelBindingResult.Failed();
+            }
+            else
+            {
+                bindingContext.ModelState.SetModelValue(
+                    bindingContext.ModelName,
+                    request.Headers.GetCommaSeparatedValues(headerName),
+                    request.Headers[headerName]);
+
+                bindingContext.Result = ModelBindingResult.Success(model);
+            }
+
+            _logger.DoneAttemptingToBindModel(bindingContext);
+        }
+
+        private static object GetCompatibleCollection(ModelBindingContext bindingContext, string[] values)
+        {
+            // Almost-always success if IsTopLevelObject.
+            if (!bindingContext.IsTopLevelObject && values.Length == 0)
+            {
+                return null;
+            }
+
+            if (bindingContext.ModelType.IsAssignableFrom(typeof(string[])))
+            {
+                // Array we already have is compatible.
+                return values;
+            }
+
+            var collection = ModelBindingHelper.GetCompatibleCollection<string>(bindingContext, values.Length);
+            for (var i = 0; i < values.Length; i++)
+            {
+                collection.Add(values[i]);
+            }
+
+            return collection;
         }
     }
 }

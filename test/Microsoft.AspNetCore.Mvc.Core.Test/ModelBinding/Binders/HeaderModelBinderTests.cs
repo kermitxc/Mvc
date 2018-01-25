@@ -7,6 +7,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc.Internal;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Primitives;
 using Moq;
 using Xunit;
@@ -15,6 +16,83 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 {
     public class HeaderModelBinderTests
     {
+        [Fact]
+        public async Task HeaderBinder_BindsHeaders_ToStringCollection_WithoutInnerModelBinder()
+        {
+            // Arrange
+            var type = typeof(string[]);
+            var header = "Accept";
+            var headerValue = "application/json,text/json";
+#pragma warning disable CS0618
+            var binder = new HeaderModelBinder(NullLoggerFactory.Instance);
+#pragma warning restore CS0618
+            var bindingContext = CreateContext(type);
+
+            bindingContext.FieldName = header;
+            bindingContext.HttpContext.Request.Headers.Add(header, new[] { headerValue });
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.True(bindingContext.Result.IsModelSet);
+            Assert.Equal(headerValue.Split(','), bindingContext.Result.Model);
+        }
+
+        [Fact]
+        public async Task HeaderBinder_BindsHeaders_ToStringType_WithoutInnerModelBinder()
+        {
+            // Arrange
+            var type = typeof(string);
+            var header = "User-Agent";
+            var headerValue = "UnitTest";
+#pragma warning disable CS0618
+            var binder = new HeaderModelBinder(NullLoggerFactory.Instance);
+#pragma warning restore CS0618
+            var bindingContext = CreateContext(type);
+
+            bindingContext.FieldName = header;
+            bindingContext.HttpContext.Request.Headers.Add(header, new[] { headerValue });
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.True(bindingContext.Result.IsModelSet);
+            Assert.Equal(headerValue, bindingContext.Result.Model);
+        }
+
+        [Theory]
+        [InlineData(typeof(IEnumerable<string>))]
+        [InlineData(typeof(ICollection<string>))]
+        [InlineData(typeof(IList<string>))]
+        [InlineData(typeof(List<string>))]
+        [InlineData(typeof(LinkedList<string>))]
+        [InlineData(typeof(StringList))]
+        public async Task HeaderBinder_BindsHeaders_ForCollectionsItCanCreate_WithoutInnerModelBinder(
+            Type destinationType)
+        {
+            // Arrange
+            var header = "Accept";
+            var headerValue = "application/json,text/json";
+#pragma warning disable CS0618
+            var binder = new HeaderModelBinder(NullLoggerFactory.Instance);
+#pragma warning restore CS0618
+            var bindingContext = CreateContext(destinationType);
+
+            bindingContext.FieldName = header;
+            bindingContext.HttpContext.Request.Headers.Add(header, new[] { headerValue });
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.True(bindingContext.Result.IsModelSet);
+            Assert.IsAssignableFrom(destinationType, bindingContext.Result.Model);
+            Assert.Equal(headerValue.Split(','), bindingContext.Result.Model as IEnumerable<string>);
+        }
+
+
         [Fact]
         public async Task HeaderBinder_BindsHeaders_ToStringCollection()
         {
