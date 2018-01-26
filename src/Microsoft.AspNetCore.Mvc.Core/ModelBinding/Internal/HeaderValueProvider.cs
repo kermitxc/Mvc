@@ -9,13 +9,9 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
     internal class HeaderValueProvider : IValueProvider
     {
         private readonly CultureInfo _culture;
-        private readonly bool _isHeaderPresent;
         private readonly string[] _values;
 
-        public HeaderValueProvider(
-            CultureInfo culture,
-            bool isHeaderPresent,
-            string[] values)
+        public HeaderValueProvider(CultureInfo culture, string[] values)
         {
             if (values == null)
             {
@@ -23,14 +19,13 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Internal
             }
 
             _culture = culture;
-            _isHeaderPresent = isHeaderPresent;
             _values = values;
         }
 
         /// <inheritdoc />
         public bool ContainsPrefix(string prefix)
         {
-            return _isHeaderPresent;
+            return _values.Length != 0;
         }
 
         /// <inheritdoc />

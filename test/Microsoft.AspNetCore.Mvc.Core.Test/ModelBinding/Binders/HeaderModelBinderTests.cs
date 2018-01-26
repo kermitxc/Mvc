@@ -24,7 +24,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             var header = "Accept";
             var headerValue = "application/json,text/json";
 #pragma warning disable CS0618
-            var binder = new HeaderModelBinder(NullLoggerFactory.Instance);
+            var binder = new HeaderModelBinder();
 #pragma warning restore CS0618
             var bindingContext = CreateContext(type);
 
@@ -47,7 +47,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             var header = "User-Agent";
             var headerValue = "UnitTest";
 #pragma warning disable CS0618
-            var binder = new HeaderModelBinder(NullLoggerFactory.Instance);
+            var binder = new HeaderModelBinder();
 #pragma warning restore CS0618
             var bindingContext = CreateContext(type);
 
@@ -76,7 +76,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             var header = "Accept";
             var headerValue = "application/json,text/json";
 #pragma warning disable CS0618
-            var binder = new HeaderModelBinder(NullLoggerFactory.Instance);
+            var binder = new HeaderModelBinder();
 #pragma warning restore CS0618
             var bindingContext = CreateContext(destinationType);
 
@@ -122,10 +122,11 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                     { "10.50", typeof(double), 10.50 },
                     { "10.50", typeof(IEnumerable<double>), new List<double>() { 10.50 } },
                     { "Sedan", typeof(CarType), CarType.Sedan },
-                    { null, typeof(CarType?), null },
                     { "", typeof(CarType?), null },
                     { "", typeof(string[]), Array.Empty<string>() },
+                    { null, typeof(string[]), Array.Empty<string>() },
                     { "", typeof(IEnumerable<string>), new List<string>() },
+                    { null, typeof(IEnumerable<string>), new List<string>() },
                     { guid.ToString(), typeof(Guid), guid },
                     { "foo", typeof(string), "foo" },
                     { "foo, bar", typeof(string), "foo, bar" },
@@ -158,6 +159,46 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Assert
             Assert.True(bindingContext.Result.IsModelSet);
             Assert.Equal(expectedModel, bindingContext.Result.Model);
+        }
+
+        [Theory]
+        [InlineData(typeof(CarType?), null)]
+        [InlineData(typeof(int?), null)]
+        public async Task HeaderBinder_DoesNotSetModel_ForHeaderNotPresentOnRequest(
+            Type modelType,
+            object expectedModel)
+        {
+            // Arrange
+            var bindingContext = CreateContext(modelType);
+            var binder = CreateBinder(bindingContext.ModelMetadata);
+            
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.False(bindingContext.Result.IsModelSet);
+            Assert.Null(bindingContext.Result.Model);
+        }
+
+        [Theory]
+        [InlineData(typeof(string[]), null)]
+        [InlineData(typeof(IEnumerable<string>), null)]
+        public async Task HeaderBinder_DoesNotCreateEmptyCollection_ForNonTopLevelObjects(
+            Type modelType,
+            object expectedModel)
+        {
+            // Arrange
+            var bindingContext = CreateContext(modelType);
+            bindingContext.IsTopLevelObject = false;
+            var binder = CreateBinder(bindingContext.ModelMetadata);
+            // No header on the request that the header value provider is looking for
+
+            // Act
+            await binder.BindModelAsync(bindingContext);
+
+            // Assert
+            Assert.False(bindingContext.Result.IsModelSet);
+            Assert.Null(bindingContext.Result.Model);
         }
 
         [Theory]

@@ -27,7 +27,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding
         /// <returns>An <see cref="IModelBinder"/>.</returns>
         public virtual IModelBinder CreateBinder(ModelMetadata metadata, BindingInfo bindingInfo)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException();
         }
 
         /// <summary>

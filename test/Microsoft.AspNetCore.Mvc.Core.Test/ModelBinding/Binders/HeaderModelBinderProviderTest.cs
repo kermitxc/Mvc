@@ -46,12 +46,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         [Theory]
         [InlineData(typeof(string))]
         [InlineData(typeof(bool))]
-        [InlineData(typeof(byte))]
-        [InlineData(typeof(short))]
         [InlineData(typeof(int))]
-        [InlineData(typeof(long))]
-        [InlineData(typeof(float))]
-        [InlineData(typeof(decimal))]
+        [InlineData(typeof(DateTime))]
         [InlineData(typeof(double))]
         [InlineData(typeof(CarEnumType))]
         public void Create_WhenBindingSourceIsFromHeader_ReturnsBinder_ForSimpleTypes(Type modelType)
@@ -73,12 +69,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 
         [Theory]
         [InlineData(typeof(bool?))]
-        [InlineData(typeof(byte?))]
-        [InlineData(typeof(short?))]
         [InlineData(typeof(int?))]
-        [InlineData(typeof(long?))]
-        [InlineData(typeof(float?))]
-        [InlineData(typeof(decimal?))]
+        [InlineData(typeof(DateTime?))]
         [InlineData(typeof(double?))]
         [InlineData(typeof(CarEnumType?))]
         public void Create_WhenBindingSourceIsFromHeader_ReturnsBinder_ForNullableSimpleTypes(Type modelType)

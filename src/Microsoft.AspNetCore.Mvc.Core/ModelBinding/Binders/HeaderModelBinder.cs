@@ -28,26 +28,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         [Obsolete("This constructor is obsolete and will be removed in a future version. The recommended alternative"
             + " is the overload that takes an " + nameof(ILoggerFactory) + " and an " + nameof(IModelBinder) + ".")]
         public HeaderModelBinder()
-            : this(NullLoggerFactory.Instance)
         {
-        }
-
-        /// <summary>
-        /// <para>This constructor is obsolete and will be removed in a future version. The recommended alternative
-        /// is the overload that takes an <see cref="ILoggerFactory"/> and an <see cref="IModelBinder"/>.</para>
-        /// Initializes a new instance of <see cref="HeaderModelBinder"/>.
-        /// </summary>
-        /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
-        [Obsolete("This constructor is obsolete and will be removed in a future version. The recommended alternative"
-            + " is the overload that takes an " + nameof(ILoggerFactory) + " and an " + nameof(IModelBinder) + ".")]
-        public HeaderModelBinder(ILoggerFactory loggerFactory)
-        {
-            if (loggerFactory == null)
-            {
-                throw new ArgumentNullException(nameof(loggerFactory));
-            }
-
-            _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
+            _logger = NullLoggerFactory.Instance.CreateLogger<HeaderModelBinder>();
         }
 
         /// <summary>
@@ -110,12 +92,17 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Create a new binding scope in order to supply the HeaderValueProvider so that the binders like
             // SimpleTypeModelBinder can find values from header.
             ModelBindingResult result;
+
+            // Capture the top level object state here as entering nested scope would make it 'false' always.
+            var isTopLevelObject = bindingContext.IsTopLevelObject;
+
             using (bindingContext.EnterNestedScope(
                     bindingContext.ModelMetadata,
                     fieldName: bindingContext.FieldName,
                     modelName: bindingContext.ModelName,
                     model: bindingContext.Model))
             {
+                bindingContext.IsTopLevelObject = isTopLevelObject;
                 bindingContext.ValueProvider = headerValueProvider;
 
                 await InnerModelBinder.BindModelAsync(bindingContext);
@@ -133,22 +120,22 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 
             // Prevent breaking existing users in scenarios where they are binding to a 'string' property
             // and expect the whole comma separated string, if any, as a single string and not as a string array.
-            string[] values;
-            if (bindingContext.ModelMetadata.IsEnumerableType)
+            var values = Array.Empty<string>();
+            if (request.Headers.ContainsKey(headerName))
             {
-                values = request.Headers.GetCommaSeparatedValues(headerName);
-            }
-            else
-            {
-                values = new[] { (string)request.Headers[headerName] };
+                if (bindingContext.ModelMetadata.IsEnumerableType)
+                {
+                    values = request.Headers.GetCommaSeparatedValues(headerName);
+                }
+                else
+                {
+                    values = new[] { (string)request.Headers[headerName] };
+                }
             }
 
             // Explicitly pass in the header name as the key rather than taking in the model name to look for values
             // as otherwise it would be breaking from earlier version where we didn't consider prefixes.
-            return new HeaderValueProvider(
-                CultureInfo.InvariantCulture,
-                request.Headers.ContainsKey(headerName),
-                values);
+            return new HeaderValueProvider(CultureInfo.InvariantCulture, values);
         }
 
         private void BindWithoutInnerBinder(ModelBindingContext bindingContext)

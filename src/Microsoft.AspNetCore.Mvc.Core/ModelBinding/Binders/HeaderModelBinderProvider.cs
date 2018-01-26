@@ -22,8 +22,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             }
 
             var bindingInfo = context.BindingInfo;
-            if (bindingInfo.BindingSource == null
-                || !bindingInfo.BindingSource.CanAcceptDataFrom(BindingSource.Header))
+            if (bindingInfo.BindingSource == null ||
+                !bindingInfo.BindingSource.CanAcceptDataFrom(BindingSource.Header))
             {
                 return null;
             }
@@ -41,12 +41,12 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Since we are delegating the binding of the current model type to other binders, modify the
             // binding source of the current model type to a non-FromHeader binding source in order to avoid an
             // infinite recursion into this binder provider.
-            var nonFromHeaderBindingInfo = new BindingInfo(bindingInfo);
-            nonFromHeaderBindingInfo.BindingSource = BindingSource.ModelBinding;
+            var nestedBindingInfo = new BindingInfo(bindingInfo);
+            nestedBindingInfo.BindingSource = BindingSource.ModelBinding;
 
             var innerModelBinder = context.CreateBinder(
                 modelMetadata.GetMetadataForType(modelMetadata.ModelType),
-                nonFromHeaderBindingInfo);
+                nestedBindingInfo);
 
             if (innerModelBinder == null)
             {
