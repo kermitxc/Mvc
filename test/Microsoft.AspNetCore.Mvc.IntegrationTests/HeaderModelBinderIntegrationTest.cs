@@ -349,14 +349,14 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             Assert.NotNull(product);
             Assert.NotNull(product.Manufacturer);
             Assert.Equal("someValue", product.Manufacturer.NoCommaString);
-            Assert.Equal("one, two, three", product.Manufacturer.OneCommaSeparatedString);
+            Assert.Equal("one, two, three", product.Manufacturer.OneCommaSeparatedStringProperty);
             Assert.Equal(10, product.Manufacturer.IntProperty);
             Assert.Equal(300, product.Manufacturer.NullableIntProperty);
             Assert.Null(product.Manufacturer.NullableLongProperty);
             Assert.Equal(new[] { "first", "second" }, product.Manufacturer.ArrayOfString);
-            Assert.Equal(new double[] { 10.51, 45.44 }, product.Manufacturer.EnumerableOfDouble);
+            Assert.Equal(new double[] { 10.51, 45.44 }, product.Manufacturer.EnumerableOfDoubleProperty);
             Assert.Equal(new CarType[] { CarType.Sedan, CarType.Coupe }, product.Manufacturer.ListOfEnum);
-            var orderWithTypeConverter = Assert.Single(product.Manufacturer.ListOfOrderWithTypeConverter);
+            var orderWithTypeConverter = Assert.Single(product.Manufacturer.ListOfOrderWithTypeConverterProperty);
             Assert.Equal(10, orderWithTypeConverter.Id);
 
             // ModelState
@@ -447,8 +447,8 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             [FromHeader]
             public string NoCommaString { get; set; }
 
-            [FromHeader]
-            public string OneCommaSeparatedString { get; set; }
+            [FromHeader(Name = "OneCommaSeparatedString")]
+            public string OneCommaSeparatedStringProperty { get; set; }
 
             [FromHeader]
             public int IntProperty { get; set; }
@@ -462,14 +462,14 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             [FromHeader]
             public string[] ArrayOfString { get; set; }
 
-            [FromHeader]
-            public IEnumerable<double> EnumerableOfDouble { get; set; }
+            [FromHeader(Name = "EnumerableOfDouble")]
+            public IEnumerable<double> EnumerableOfDoubleProperty { get; set; }
 
             [FromHeader]
             public List<CarType> ListOfEnum { get; set; }
 
-            [FromHeader]
-            public List<OrderWithTypeConverter> ListOfOrderWithTypeConverter { get; set; }
+            [FromHeader(Name = "ListOfOrderWithTypeConverter")]
+            public List<OrderWithTypeConverter> ListOfOrderWithTypeConverterProperty { get; set; }
         }
 
         private enum CarType

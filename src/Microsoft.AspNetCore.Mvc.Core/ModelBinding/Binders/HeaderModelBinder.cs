@@ -29,15 +29,15 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             + " is the overload that takes an " + nameof(ILoggerFactory) + " and an " + nameof(IModelBinder) + ".")]
         public HeaderModelBinder()
         {
-            _logger = NullLoggerFactory.Instance.CreateLogger<HeaderModelBinder>();
+            _logger = NullLogger.Instance;
         }
 
         /// <summary>
         /// Initializes a new instance of <see cref="HeaderModelBinder"/>.
         /// </summary>
+        /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
         /// <param name="innerModelBinder">The <see cref="IModelBinder"/> which does the actual
         /// binding of values.</param>
-        /// <param name="loggerFactory">The <see cref="ILoggerFactory"/>.</param>
         public HeaderModelBinder(ILoggerFactory loggerFactory, IModelBinder innerModelBinder)
         {
             if (loggerFactory == null)
@@ -50,8 +50,8 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 throw new ArgumentNullException(nameof(innerModelBinder));
             }
 
-            InnerModelBinder = innerModelBinder;
             _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
+            InnerModelBinder = innerModelBinder;
         }
 
         // to enable unit testing
@@ -70,6 +70,10 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Property name can be null if the model metadata represents a type (rather than a property or parameter).
             var headerName = bindingContext.FieldName;
 
+            // Do not set ModelBindingResult to Failed on not finding the value in the header as we want the inner 
+            // modelbinder to do that. This would give a chance to the inner binder to add more useful information.
+            // For example, SimpleTypeModelBinder adds a model error when binding to let's say an integer and the
+            // model is null.
             var request = bindingContext.HttpContext.Request;
             if (!request.Headers.ContainsKey(headerName))
             {
@@ -82,20 +86,14 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 return;
             }
 
-            // Do not set ModelBindingResult to Failed on not finding the value in the header as we want the inner 
-            // modelbinder to do that. This would give a chance to the inner binder to add more useful information.
-            // For example, SimpleTypeModelBinder adds a model error when binding to let's say an integer and the
-            // model is null.
-
             var headerValueProvider = GetHeaderValueProvider(headerName, bindingContext);
-
-            // Create a new binding scope in order to supply the HeaderValueProvider so that the binders like
-            // SimpleTypeModelBinder can find values from header.
-            ModelBindingResult result;
 
             // Capture the top level object here as entering nested scope would make it 'false' always.
             var isTopLevelObject = bindingContext.IsTopLevelObject;
 
+            // Create a new binding scope in order to supply the HeaderValueProvider so that the binders like
+            // SimpleTypeModelBinder can find values from header.
+            ModelBindingResult result;
             using (bindingContext.EnterNestedScope(
                     bindingContext.ModelMetadata,
                     fieldName: bindingContext.FieldName,
@@ -200,6 +198,40 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             }
 
             return collection;
+        }
+
+        private class HeaderValueProvider : IValueProvider
+        {
+            private readonly CultureInfo _culture;
+            private readonly string[] _values;
+
+            public HeaderValueProvider(CultureInfo culture, string[] values)
+            {
+                if (values == null)
+                {
+                    throw new ArgumentNullException(nameof(values));
+                }
+
+                _culture = culture;
+                _values = values;
+            }
+
+            public bool ContainsPrefix(string prefix)
+            {
+                return _values.Length != 0;
+            }
+
+            public ValueProviderResult GetValue(string key)
+            {
+                if (_values.Length == 0)
+                {
+                    return ValueProviderResult.None;
+                }
+                else
+                {
+                    return new ValueProviderResult(_values, _culture);
+                }
+            }
         }
     }
 }
