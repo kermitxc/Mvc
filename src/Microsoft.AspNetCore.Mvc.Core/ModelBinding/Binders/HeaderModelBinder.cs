@@ -93,7 +93,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // SimpleTypeModelBinder can find values from header.
             ModelBindingResult result;
 
-            // Capture the top level object state here as entering nested scope would make it 'false' always.
+            // Capture the top level object here as entering nested scope would make it 'false' always.
             var isTopLevelObject = bindingContext.IsTopLevelObject;
 
             using (bindingContext.EnterNestedScope(
@@ -133,8 +133,6 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
                 }
             }
 
-            // Explicitly pass in the header name as the key rather than taking in the model name to look for values
-            // as otherwise it would be breaking from earlier version where we didn't consider prefixes.
             return new HeaderValueProvider(CultureInfo.InvariantCulture, values);
         }
 

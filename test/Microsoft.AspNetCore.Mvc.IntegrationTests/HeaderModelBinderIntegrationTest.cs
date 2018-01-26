@@ -426,15 +426,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                     Assert.Equal("300", entry.AttemptedValue);
                     Assert.Equal("300", entry.RawValue);
                 },
-                //kvp =>
-                //{
-                //    Assert.Equal("prefix.Manufacturer.NullableLongProperty", kvp.Key);
-                //    var entry = kvp.Value;
-                //    Assert.Empty(entry.Errors);
-                //    Assert.Equal(ModelValidationState.Valid, entry.ValidationState);
-                //    Assert.Equal("", entry.AttemptedValue);
-                //    Assert.Null(entry.RawValue);
-                //},
                 kvp =>
                 {
                     Assert.Equal("prefix.Manufacturer.OneCommaSeparatedString", kvp.Key);
