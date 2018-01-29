@@ -33,7 +33,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindPropertyFromHeader_NoData_UsesFullPathAsKeyForModelStateErrors()
         {
             // Arrange
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor()
             {
                 Name = "Parameter1",
@@ -45,7 +44,8 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             };
 
             // Do not add any headers.
-            var testContext = ModelBindingTestHelper.GetTestContext();
+            var testContext = GetModelBindingTestContext();
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
             var modelState = testContext.ModelState;
 
             // Act
@@ -72,7 +72,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindPropertyFromHeader_WithPrefix_GetsBound()
         {
             // Arrange
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor()
             {
                 Name = "Parameter1",
@@ -83,8 +82,9 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Person)
             };
 
-            var testContext = ModelBindingTestHelper.GetTestContext(
+            var testContext = GetModelBindingTestContext(
                 request => request.Headers.Add("Header", new[] { "someValue" }));
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
             var modelState = testContext.ModelState;
 
             // Act
@@ -117,7 +117,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindPropertyFromHeader_WithData_WithEmptyPrefix_GetsBound()
         {
             // Arrange
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor()
             {
                 Name = "Parameter1",
@@ -125,8 +124,9 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Person)
             };
 
-            var testContext = ModelBindingTestHelper.GetTestContext(
+            var testContext = GetModelBindingTestContext(
                 request => request.Headers.Add("Header", new[] { "someValue" }));
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
             var modelState = testContext.ModelState;
 
             // Act
@@ -163,7 +163,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindCollectionPropertyFromHeader_WithData_IsBound()
         {
             // Arrange
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor
             {
                 Name = "Parameter1",
@@ -171,8 +170,9 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(ListContainer1),
             };
 
-            var testContext = ModelBindingTestHelper.GetTestContext(
+            var testContext = GetModelBindingTestContext(
                 request => request.Headers.Add("Header", new[] { "someValue" }));
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
             var modelState = testContext.ModelState;
 
             // Act
@@ -210,7 +210,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindReadOnlyCollectionPropertyFromHeader_WithData_IsBound()
         {
             // Arrange
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor
             {
                 Name = "Parameter1",
@@ -218,8 +217,9 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(ListContainer2),
             };
 
-            var testContext = ModelBindingTestHelper.GetTestContext(
+            var testContext = GetModelBindingTestContext(
                 request => request.Headers.Add("Header", new[] { "someValue" }));
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
             var modelState = testContext.ModelState;
 
             // Act
@@ -266,7 +266,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 expectedRawValue = value.Split(',').Select(v => v.Trim()).ToArray();
             }
 
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor
             {
                 Name = "Parameter1",
@@ -279,7 +278,8 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
             };
 
             Action<HttpRequest> action = r => r.Headers.Add("CustomParameter", new[] { expectedAttemptedValue });
-            var testContext = ModelBindingTestHelper.GetTestContext(action);
+            var testContext = GetModelBindingTestContext(action);
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
 
             // Do not add any headers.
             var httpContext = testContext.HttpContext;
@@ -311,7 +311,6 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
         public async Task BindPropertyFromHeader_WithPrefix_GetsBound_ForSimpleTypes()
         {
             // Arrange
-            var parameterBinder = ModelBindingTestHelper.GetParameterBinder();
             var parameter = new ParameterDescriptor()
             {
                 Name = "Parameter1",
@@ -322,7 +321,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                 ParameterType = typeof(Product)
             };
 
-            var testContext = ModelBindingTestHelper.GetTestContext(
+            var testContext = GetModelBindingTestContext(
                 request =>
                 {
                     request.Headers.Add("NoCommaString", "someValue");
@@ -334,6 +333,7 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                     request.Headers.Add("ListOfEnum", "Sedan, Coupe");
                     request.Headers.Add("ListOfOrderWithTypeConverter", "10");
                 });
+            var parameterBinder = ModelBindingTestHelper.GetParameterBinder(testContext.HttpContext.RequestServices);
             var modelState = testContext.ModelState;
 
             // Act
@@ -435,6 +435,21 @@ namespace Microsoft.AspNetCore.Mvc.IntegrationTests
                     Assert.Equal("one, two, three", entry.AttemptedValue);
                     Assert.Equal("one, two, three", entry.RawValue);
                 });
+        }
+
+        private ModelBindingTestContext GetModelBindingTestContext(
+            Action<HttpRequest> updateRequest = null,
+            Action<MvcOptions> updateOptions = null)
+        {
+            if (updateOptions == null)
+            {
+                updateOptions = o =>
+                {
+                    o.AllowHeaderModelBinderToBindToNonStringModelTypes = true;
+                };
+            }
+
+            return ModelBindingTestHelper.GetTestContext(updateRequest, updateOptions);
         }
 
         private class Product

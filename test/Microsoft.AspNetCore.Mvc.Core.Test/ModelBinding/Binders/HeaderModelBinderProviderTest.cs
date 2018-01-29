@@ -5,6 +5,8 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -12,6 +14,55 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 {
     public class HeaderModelBinderProviderTest
     {
+        [Theory]
+        [InlineData(typeof(string))]
+        [InlineData(typeof(string[]))]
+        [InlineData(typeof(List<string>))]
+        public void Create_WhenBindingSourceIsFromHeader_ReturnsBinder_ForStringTypes_And_CompatVersion_2_0(
+            Type modelType)
+        {
+            // Arrange
+            var provider = new HeaderModelBinderProvider();
+            var testBinder = Mock.Of<IModelBinder>();
+            var context = GetTestModelBinderProviderContext(
+                modelType,
+                allowHeaderModelBinderToBindToNonStringModelTypes: false);
+            context.BindingInfo.BindingSource = BindingSource.Header;
+
+            // Act
+            var result = provider.GetBinder(context);
+
+            // Assert
+            Assert.IsType<HeaderModelBinder>(result);
+        }
+
+        [Theory]
+        [InlineData(typeof(int))]
+        [InlineData(typeof(int?))]
+        [InlineData(typeof(IEnumerable<int>))]
+        [InlineData(typeof(double))]
+        [InlineData(typeof(double?))]
+        [InlineData(typeof(IEnumerable<double>))]
+        [InlineData(typeof(CarEnumType))]
+        [InlineData(typeof(CarEnumType?))]
+        [InlineData(typeof(IEnumerable<CarEnumType>))]
+        public void Create_WhenBindingSourceIsFromHeader_ReturnsNull_ForNonStringTypes_And_CompatVersion_2_0(
+            Type modelType)
+        {
+            // Arrange
+            var provider = new HeaderModelBinderProvider();
+            var context = GetTestModelBinderProviderContext(
+                modelType,
+                allowHeaderModelBinderToBindToNonStringModelTypes: false);
+            context.BindingInfo.BindingSource = BindingSource.Header;
+
+            // Act
+            var result = provider.GetBinder(context);
+
+            // Assert
+            Assert.Null(result);
+        }
+
         public static TheoryData<BindingSource> NonHeaderBindingSources
         {
             get
@@ -32,7 +83,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Arrange
             var provider = new HeaderModelBinderProvider();
             var testBinder = Mock.Of<IModelBinder>();
-            var context = new TestModelBinderProviderContext(typeof(string));
+            var context = GetTestModelBinderProviderContext(typeof(string));
             context.OnCreatingBinder(modelMetadata => testBinder);
             context.BindingInfo.BindingSource = source;
 
@@ -55,7 +106,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Arrange
             var provider = new HeaderModelBinderProvider();
             var testBinder = Mock.Of<IModelBinder>();
-            var context = new TestModelBinderProviderContext(modelType);
+            var context = GetTestModelBinderProviderContext(modelType);
             context.OnCreatingBinder(modelMetadata => testBinder);
             context.BindingInfo.BindingSource = BindingSource.Header;
 
@@ -78,7 +129,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Arrange
             var provider = new HeaderModelBinderProvider();
             var testBinder = Mock.Of<IModelBinder>();
-            var context = new TestModelBinderProviderContext(modelType);
+            var context = GetTestModelBinderProviderContext(modelType);
             context.OnCreatingBinder(modelMetadata => testBinder);
             context.BindingInfo.BindingSource = BindingSource.Header;
 
@@ -104,7 +155,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Arrange
             var provider = new HeaderModelBinderProvider();
             var testBinder = Mock.Of<IModelBinder>();
-            var context = new TestModelBinderProviderContext(modelType);
+            var context = GetTestModelBinderProviderContext(modelType);
             context.OnCreatingBinder(modelMetadata => testBinder);
             context.BindingInfo.BindingSource = BindingSource.Header;
 
@@ -126,7 +177,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Arrange
             var provider = new HeaderModelBinderProvider();
             var testBinder = Mock.Of<IModelBinder>();
-            var context = new TestModelBinderProviderContext(modelType);
+            var context = GetTestModelBinderProviderContext(modelType);
             context.OnCreatingBinder(modelMetadata => testBinder);
             context.BindingInfo.BindingSource = BindingSource.Header;
 
@@ -148,7 +199,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
             // Arrange
             var provider = new HeaderModelBinderProvider();
             var testBinder = Mock.Of<IModelBinder>();
-            var context = new TestModelBinderProviderContext(modelType);
+            var context = GetTestModelBinderProviderContext(modelType);
             context.OnCreatingBinder(modelMetadata => testBinder);
             context.BindingInfo.BindingSource = BindingSource.Header;
 
@@ -165,7 +216,7 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         {
             // Arrange
             var provider = new HeaderModelBinderProvider();
-            var context = new TestModelBinderProviderContext(typeof(string));
+            var context = GetTestModelBinderProviderContext(typeof(string));
             context.OnCreatingBinder(modelMetadata => null);
             context.BindingInfo.BindingSource = BindingSource.Header;
 
@@ -174,6 +225,16 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
 
             // Assert
             Assert.Null(result);
+        }
+
+        private TestModelBinderProviderContext GetTestModelBinderProviderContext(
+            Type modelType,
+            bool allowHeaderModelBinderToBindToNonStringModelTypes = true)
+        {
+            var context = new TestModelBinderProviderContext(modelType);
+            var options = context.Services.GetRequiredService<IOptions<MvcOptions>>().Value;
+            options.AllowHeaderModelBinderToBindToNonStringModelTypes = allowHeaderModelBinderToBindToNonStringModelTypes;
+            return context;
         }
 
         private enum CarEnumType

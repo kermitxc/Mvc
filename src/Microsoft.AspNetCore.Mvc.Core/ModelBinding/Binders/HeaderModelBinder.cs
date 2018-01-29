@@ -28,8 +28,17 @@ namespace Microsoft.AspNetCore.Mvc.ModelBinding.Binders
         [Obsolete("This constructor is obsolete and will be removed in a future version. The recommended alternative"
             + " is the overload that takes an " + nameof(ILoggerFactory) + " and an " + nameof(IModelBinder) + ".")]
         public HeaderModelBinder()
+            : this(NullLoggerFactory.Instance)
         {
             _logger = NullLogger.Instance;
+        }
+
+        /// <summary>
+        /// Initializes a new instance of <see cref="HeaderModelBinder"/>.
+        /// </summary>
+        public HeaderModelBinder(ILoggerFactory loggerFactory)
+        {
+            _logger = loggerFactory.CreateLogger<HeaderModelBinder>();
         }
 
         /// <summary>

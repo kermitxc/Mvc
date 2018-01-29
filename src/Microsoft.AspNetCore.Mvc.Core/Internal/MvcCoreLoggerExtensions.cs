@@ -107,6 +107,7 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         private static readonly Action<ILogger, Type, Exception> _cannotBindToComplexType;
         private static readonly Action<ILogger, string, Type, Exception> _cannotBindToFilesCollectionDueToUnsupportedContentType;
         private static readonly Action<ILogger, Type, Exception> _cannotCreateHeaderModelBinder;
+        private static readonly Action<ILogger, Type, Exception> _cannotCreateHeaderModelBinderCompatVersion_2_0;
         private static readonly Action<ILogger, Exception> _noFilesFoundInRequest;
         private static readonly Action<ILogger, string, string, Exception> _noNonIndexBasedFormatFoundForCollection;
         private static readonly Action<ILogger, string, string, string, string, string, string, Exception> _attemptingToBindCollectionUsingIndices;
@@ -486,6 +487,11 @@ namespace Microsoft.AspNetCore.Mvc.Internal
                LogLevel.Debug,
                19,
                "Could not bind to model with name '{ModelName}' and type '{ModelType}' as the request did not have a content type of either 'application/x-www-form-urlencoded' or 'multipart/form-data'.");
+
+            _cannotCreateHeaderModelBinderCompatVersion_2_0 = LoggerMessage.Define<Type>(
+               LogLevel.Debug,
+               20,
+               "Could not create a binder for type '{ModelType}' as this binder only supports 'System.String' type or a collection of 'System.String'.");
 
             _cannotCreateHeaderModelBinder = LoggerMessage.Define<Type>(
                LogLevel.Debug,
@@ -1167,6 +1173,11 @@ namespace Microsoft.AspNetCore.Mvc.Internal
         public static void CannotBindToFilesCollectionDueToUnsupportedContentType(this ILogger logger, ModelBindingContext bindingContext)
         {
             _cannotBindToFilesCollectionDueToUnsupportedContentType(logger, bindingContext.ModelName, bindingContext.ModelType, null);
+        }
+
+        public static void CannotCreateHeaderModelBinderCompatVersion_2_0(this ILogger logger, Type modelType)
+        {
+            _cannotCreateHeaderModelBinderCompatVersion_2_0(logger, modelType, null);
         }
 
         public static void CannotCreateHeaderModelBinder(this ILogger logger, Type modelType)
